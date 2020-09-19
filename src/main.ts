@@ -1,3 +1,7 @@
+import { Observable } from 'rxjs';
+import { mergeMap } from 'rxjs/operators';
+import { PouchyRX } from './PouchyRX';
+
 /**
  * Some predefined delays (in milliseconds).
  */
@@ -30,3 +34,10 @@ function delayedHello(
 export async function greeter(name: string) {
   return await delayedHello(name, Delays.Long);
 }
+
+export const mergeMap$ = mergeMap(
+  <T>(o: T[] | Observable<T> | Promise<T>) => o,
+);
+const db = new PouchyRX('ppphf');
+
+db.get('jj').subscribe((o) => console.log(o?.));

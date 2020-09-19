@@ -6,6 +6,7 @@
     "allowSyntheticDefaultImports": true,
     "allowJs": true,
     "importHelpers": true,
+    "outDir": "build",
     "jsx": "react",
     "alwaysStrict": true,
     "sourceMap": true,
@@ -16,7 +17,8 @@
     "noUnusedParameters": true,
     "noImplicitAny": false,
     "noImplicitThis": false,
-    "strictNullChecks": false
+    "strictNullChecks": true,
+    "esModuleInterop": true
   },
   "include": [
     "src/**/*",
