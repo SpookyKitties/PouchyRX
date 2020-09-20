@@ -1,5 +1,5 @@
 import PouchDB from 'pouchdb';
-import { Observable, of } from 'rxjs';
+import { forkJoin, Observable, of } from 'rxjs';
 import { map, mergeMap } from 'rxjs/operators';
 import { DBItem } from './DBItem';
 
@@ -8,9 +8,29 @@ export class PouchyRX<T extends DBItem> {
 
   public get = (_id: string) => {
     return this.db.pipe(
-      map(async (db) => {
+      map(
+        async (db): Promise<T | undefined> => {
+          try {
+            return (await db.get(_id)) as T;
+          } catch (error) {
+            return undefined;
+          }
+        },
+      ),
+      mergeMap((o) => o),
+    );
+  };
+
+  public rev = (_id: string) => {
+    return this.get(_id).pipe(map((val) => (val ? val._id : undefined)));
+  };
+
+  public put = (doc: T, options?: PouchDB.Core.PutOptions) => {
+    return forkJoin(this.rev(doc._id), this.db).pipe(
+      map(async ([_rev, db]) => {
         try {
-          return (await db.get(_id)) as T;
+          doc._rev = _rev;
+          return await db.put(doc, options);
         } catch (error) {
           return undefined;
         }
