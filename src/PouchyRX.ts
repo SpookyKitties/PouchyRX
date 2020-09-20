@@ -1,10 +1,11 @@
 import PouchDB from 'pouchdb';
 import { forkJoin, Observable, of } from 'rxjs';
-import { map, mergeMap } from 'rxjs/operators';
+import { filter, map, mergeMap } from 'rxjs/operators';
 import { DBItem } from './DBItem';
+import { mergeMap$ } from './main';
 
 export class PouchyRX<T extends DBItem> {
-  public db: Observable<PouchDB.Database<T>>;
+  public db: Observable<PouchDB.Database<DBItem>>;
 
   public get = (_id: string) => {
     return this.db.pipe(
@@ -25,12 +26,13 @@ export class PouchyRX<T extends DBItem> {
     return this.get(_id).pipe(map((val) => (val ? val._id : undefined)));
   };
 
-  public put = (doc: T, options?: PouchDB.Core.PutOptions) => {
+  public put = (doc: T) => {
     return forkJoin(this.rev(doc._id), this.db).pipe(
       map(async ([_rev, db]) => {
         try {
           doc._rev = _rev;
-          return await db.put(doc, options);
+
+          return await db.put(doc);
         } catch (error) {
           return undefined;
         }
@@ -39,6 +41,14 @@ export class PouchyRX<T extends DBItem> {
     );
   };
 
+  createIndex = (i: { index: { fields: string[] } }) => {
+    return this.db.pipe(
+      map((db) => {
+        return db.createIndex(i);
+      }),
+      mergeMap$,
+    );
+  };
   constructor(
     dbName: string,
     options?:
@@ -47,6 +57,39 @@ export class PouchyRX<T extends DBItem> {
       | PouchDB.Configuration.LocalDatabaseConfiguration
       | PouchDB.Configuration.RemoteDatabaseConfiguration,
   ) {
-    this.db = of(new PouchDB(dbName, options));
+    const db = new PouchDB<DBItem>(dbName, options);
+    PouchDB.plugin(require('pouchdb-find'));
+    this.db = of(db);
   }
+
+  init = () => {
+    return this.createIndex({ index: { fields: ['tags'] } });
+  };
+  allDocs = (opts?: PouchDB.Core.AllDocsOptions) => {
+    return this.db.pipe(
+      filter((o) => o !== undefined),
+      map(async (db) => {
+        return (await db.allDocs(opts)).rows
+          .map((d) => {
+            console.log(d);
+
+            return d.doc as DBItem;
+          })
+          .filter((o) => o?.tags !== undefined);
+      }),
+      mergeMap((o) => o),
+    );
+  };
+
+  findByTags = (tags: string[]) => {
+    return this.allDocs({ include_docs: true }).pipe(
+      map((docs) =>
+        docs.filter((doc) => {
+          return (
+            tags.filter((tag) => doc.tags.includes(tag)).length === tags.length
+          );
+        }),
+      ),
+    );
+  };
 }
